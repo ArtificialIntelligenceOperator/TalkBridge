@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: mediastream:; connect-src 'self' ws://127.0.0.1:*;" />
+  <title>VoiceB</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">Voice<span>B</span></div>
+  <div class="pill" id="session-pill" title="Session length and estimated cost. Billing is per minute of audio per active lane; this is a local estimate, the OpenAI dashboard is the authority.">idle</div>
+  <div class="topbar-actions">
+    <button class="icon-btn" id="btn-setup" title="Audio &amp; language setup">Setup</button>
+    <button class="icon-btn" id="btn-history" title="Past sessions">History</button>
+    <button class="icon-btn" id="btn-settings" title="Settings">⚙</button>
+  </div>
+</header>
+
+<div class="stage">
+
+<section class="statusbar">
+  <span class="dot" id="status-dot"></span>
+  <span class="status-text" id="status-text">Ready</span>
+  <span class="chip chip-lag" id="lag-chip" hidden>—</span>
+  <div class="meters">
+    <div class="meter" title="My microphone"><span>YOU</span><i id="meter-mic"></i></div>
+    <div class="meter" title="Incoming call audio"><span>CALL</span><i id="meter-remote"></i></div>
+  </div>
+</section>
+
+<div class="warn lane-problems" id="lane-problems" hidden></div>
+
+<main class="feed-wrap">
+  <div class="feed" id="feed"></div>
+  <div class="empty" id="feed-empty">
+    <div class="empty-glyph">⇄</div>
+    <p class="empty-title">Not translating yet</p>
+    <p class="empty-hint">Press <b>Start translation</b>. Speak normally — you can talk over each other.</p>
+  </div>
+</main>
+
+<footer class="dock">
+  <div class="dock-row">
+    <button class="primary" id="btn-start">Start translation</button>
+    <button class="ghost square" id="btn-mute" title="Mute my microphone" disabled>MIC</button>
+    <button class="ghost square" id="btn-ptt" title="Hold to talk" hidden>PTT</button>
+  </div>
+  <button class="link-btn" id="btn-export" disabled>Export transcript</button>
+</footer>
+
+<!-- ------------------------------------------------------------- SETUP --- -->
+<div class="panel" id="panel-setup" hidden>
+  <div class="panel-head">
+    <h2>Setup</h2>
+    <button class="icon-btn panel-close">✕</button>
+  </div>
+  <div class="panel-body">
+
+    <div class="group">
+      <div class="group-head">
+        <h3>Translation engine</h3>
+      </div>
+
+      <div class="engine-choice">
+        <label class="engine-card">
+          <input type="radio" name="engine" value="cloud" id="engine-cloud" checked />
+          <span class="engine-body">
+            <b>OpenAI &middot; realtime</b>
+            <em>One model that listens and speaks at the same time. About a quarter
+              of a second behind you, and either side can cut the other off.
+              Needs a key and the internet; billed per minute.</em>
+          </span>
+        </label>
+        <label class="engine-card">
+          <input type="radio" name="engine" value="local" id="engine-local" />
+          <span class="engine-body">
+            <b>On this computer</b>
+            <em>Whisper, OPUS-MT and Piper running here. Free, private, works
+              offline &mdash; but it waits for you to pause before it can translate,
+              so expect a second or two and no interrupting.</em>
+          </span>
+        </label>
+      </div>
+
+      <div id="local-engine" hidden>
+        <div class="local-status" id="local-status">Checking…</div>
+
+        <div class="btn-row">
+          <button class="ghost" id="btn-local-setup">Install engine</button>
+          <button class="ghost" id="btn-local-models">Download models</button>
+          <button class="ghost" id="btn-local-recheck">Re-check</button>
+        </div>
+        <pre class="local-log" id="local-log" hidden></pre>
+
+        <label class="field">
+          <span>Speech recognition</span>
+          <select id="sel-local-asr">
+            <option value="auto">Auto &mdash; GigaAM for Russian, Parakeet for the rest (recommended)</option>
+            <option value="gigaam">GigaAM v3 &mdash; Russian only, best for it</option>
+            <option value="parakeet">Parakeet TDT v3 &mdash; 25 European languages</option>
+            <option value="whisper:small">Whisper small &mdash; any language, slower</option>
+            <option value="whisper:medium">Whisper medium &mdash; any language, slow</option>
+            <option value="whisper:large-v3-turbo">Whisper large-v3-turbo &mdash; any language, slowest</option>
+          </select>
+        </label>
+        <div class="voice-row">
+          <label class="field">
+            <span>My voice <em id="voice-mine-lang"></em></span>
+            <select id="sel-voice-mine"></select>
+          </label>
+          <button class="ghost play" id="btn-voice-mine" title="Hear this voice">&#9654;</button>
+        </div>
+        <div class="voice-row">
+          <label class="field">
+            <span>Their voice <em id="voice-theirs-lang"></em></span>
+            <select id="sel-voice-theirs"></select>
+          </label>
+          <button class="ghost play" id="btn-voice-theirs" title="Hear this voice">&#9654;</button>
+        </div>
+        <p class="note">“My voice” is what the other person hears when you speak; “their voice”
+          is what you hear in your headphones. The cloud engine has no voice choice &mdash; it
+          imitates whoever is speaking.</p>
+
+        <label class="field">
+          <span>Translation model</span>
+          <select id="sel-local-translator">
+            <option value="nllb">NLLB-200 600M &mdash; better, 620 MB, all languages</option>
+            <option value="opus">OPUS-MT &mdash; faster, 78 MB per direction</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Run on</span>
+          <select id="sel-local-device">
+            <option value="cpu">CPU</option>
+            <option value="cuda">NVIDIA GPU</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Pause that ends a phrase</span>
+          <select id="sel-local-endpoint">
+            <option value="320">0.32 s &mdash; snappy, may cut you off</option>
+            <option value="480">0.48 s &mdash; recommended</option>
+            <option value="700">0.7 s &mdash; patient</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Voice sensitivity</span>
+          <input type="range" id="rng-local-sensitivity" min="0" max="100" step="5" />
+        </label>
+        <p class="note" id="local-note"></p>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-head">
+        <h3>Languages</h3>
+      </div>
+      <div class="lang-row">
+        <label class="field">
+          <span>I speak</span>
+          <select id="sel-mylang"></select>
+        </label>
+        <button class="icon-btn swap" id="btn-swap-lang" title="Swap languages">⇄</button>
+        <label class="field">
+          <span>They speak</span>
+          <select id="sel-theirlang"></select>
+        </label>
+      </div>
+      <p class="note">Both languages must be ones the model can speak. It detects what you
+        say automatically — the choice here sets what each side <em>hears</em>.</p>
+    </div>
+
+    <div class="group">
+      <div class="group-head">
+        <h3>Audio routing</h3>
+        <button class="icon-btn" id="btn-refresh-devices" title="Re-scan devices">↻</button>
+      </div>
+
+      <label class="switch-row">
+        <input type="checkbox" id="chk-outbound" checked />
+        <span><b>They hear me translated</b><em>my mic → the call</em></span>
+      </label>
+      <label class="field">
+        <span>My microphone</span>
+        <select id="sel-mic"></select>
+      </label>
+      <label class="field">
+        <span>Send translated voice to</span>
+        <select id="sel-tocall"></select>
+      </label>
+
+      <hr class="rule" />
+
+      <label class="switch-row">
+        <input type="checkbox" id="chk-inbound" checked />
+        <span><b>I hear them translated</b><em>the call → my headphones</em></span>
+      </label>
+      <label class="field">
+        <span>Capture call audio from</span>
+        <select id="sel-fromcall"></select>
+      </label>
+      <label class="field">
+        <span>My headphones</span>
+        <select id="sel-headphones"></select>
+      </label>
+
+      <div class="route-summary" id="route-summary"></div>
+
+      <div class="test-row">
+        <button class="ghost" id="btn-test-audio">Test devices</button>
+        <div class="meter wide" title="My microphone"><span>MIC</span><i id="meter-test-mic"></i></div>
+        <div class="meter wide" title="Call audio coming in"><span>CALL</span><i id="meter-test-call"></i></div>
+      </div>
+      <p class="note" id="test-note">Opens the selected inputs and shows their levels. Nothing is
+        sent to OpenAI and nothing is billed — use it to confirm the call audio really reaches
+        VoiceB before starting a session.</p>
+
+      <div class="warn" id="route-warning" hidden></div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Virtual cables</h3></div>
+      <div id="cable-status" class="cable-status"></div>
+      <ol class="steps">
+        <li>In <b>Google Meet</b>, set the microphone to your outbound cable
+          (<code id="hint-tocall">CABLE Output</code>).</li>
+        <li>In <b>Chrome</b>, set the Meet tab's speaker to your inbound cable
+          (<code id="hint-fromcall">CABLE-B Input</code>) — tab volume icon, or
+          Meet's own audio settings.</li>
+        <li>Keep VoiceB's headphones set to your real headset.</li>
+      </ol>
+      <div class="btn-row">
+        <button class="ghost" id="btn-sound-panel">Windows sound panel</button>
+        <button class="ghost" id="btn-get-cable">Get VB-Cable</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ---------------------------------------------------------- SETTINGS --- -->
+<div class="panel" id="panel-settings" hidden>
+  <div class="panel-head">
+    <h2>Settings</h2>
+    <button class="icon-btn panel-close">✕</button>
+  </div>
+  <div class="panel-body">
+
+    <div class="group">
+      <div class="group-head"><h3>OpenAI API key</h3></div>
+      <label class="field">
+        <span>Key</span>
+        <input type="password" id="inp-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+      </label>
+      <div class="btn-row">
+        <button class="ghost" id="btn-save-key">Save</button>
+        <button class="ghost" id="btn-verify-key">Test</button>
+        <button class="ghost danger" id="btn-clear-key">Remove</button>
+      </div>
+      <div class="key-status" id="key-status"></div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Listening</h3></div>
+      <label class="field">
+        <span>Microphone mode</span>
+        <select id="sel-micmode">
+          <option value="open">Always open</option>
+          <option value="ptt">Push to talk</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Noise reduction</span>
+        <select id="sel-noise">
+          <option value="near_field">Near field (headset mic)</option>
+          <option value="far_field">Far field (laptop / room mic)</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="chk-transcription" checked />
+        <span><b>Live captions</b><em>also stream the source-language transcript</em></span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="chk-echogate" />
+        <span><b>Anti-echo</b><em>while my translation is being spoken, don't listen to the
+          call — for when the other side is on a speakerphone. Costs you the ability to hear
+          them interrupt.</em></span>
+      </label>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Output mix</h3></div>
+      <label class="field range">
+        <span>Translation volume <b id="lbl-volume">100%</b></span>
+        <input type="range" id="rng-volume" min="0" max="100" step="5" />
+      </label>
+      <label class="field range">
+        <span>Original voice under it <b id="lbl-passthrough">15%</b></span>
+        <input type="range" id="rng-passthrough" min="0" max="60" step="5" />
+      </label>
+      <p class="note">Keeping the speaker's real voice faintly audible makes the
+        conversation much easier to follow — you catch tone and interruptions early.</p>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Shortcuts</h3></div>
+      <label class="field">
+        <span>Toggle mute</span>
+        <input type="text" id="inp-hotkey-mute" spellcheck="false" />
+      </label>
+      <label class="field">
+        <span>Show window</span>
+        <input type="text" id="inp-hotkey-show" spellcheck="false" />
+      </label>
+      <p class="note">Electron accelerator syntax, e.g. <code>Control+Alt+Space</code>.
+        Hold <b>Space</b> while the window is focused for push-to-talk.</p>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Glossary</h3></div>
+      <p class="note">Applies to captions, history and exports only — the model
+        takes no custom prompt, so it cannot change the spoken translation.</p>
+      <div id="glossary-list" class="glossary-list"></div>
+      <button class="ghost" id="btn-add-term">Add term</button>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Application</h3></div>
+      <label class="switch-row">
+        <input type="checkbox" id="chk-tray" />
+        <span><b>Close to tray</b><em>keep running in the background</em></span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="chk-autosave" />
+        <span><b>Save transcripts</b><em>store each session in History</em></span>
+      </label>
+      <div class="about" id="about"></div>
+      <div class="btn-row">
+        <button class="ghost" id="btn-open-data">Open data folder</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ----------------------------------------------------------- HISTORY --- -->
+<div class="panel" id="panel-history" hidden>
+  <div class="panel-head">
+    <h2>History</h2>
+    <button class="icon-btn panel-close">✕</button>
+  </div>
+  <div class="panel-body">
+    <div id="history-list" class="history-list"></div>
+  </div>
+</div>
+
+</div><!-- /stage -->
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="js/languages.js"></script>
+<script src="js/glossary.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/lane.js"></script>
+<script src="js/locallane.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

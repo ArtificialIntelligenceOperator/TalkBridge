@@ -1,0 +1,16 @@
+# По умолчанию git нормализует переводы строк в репозитории к LF.
+* text=auto eol=lf
+
+# Скрипты запуска читает Windows: cmd.exe и WSH ломаются на LF, поэтому
+# в рабочей копии они всегда должны быть CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.vbs text eol=crlf
+*.ps1 text eol=crlf
+
+# Бинарные файлы — без нормализации и без diff.
+*.png binary
+*.ico binary
+*.onnx binary
+*.bin binary
+*.spm binary

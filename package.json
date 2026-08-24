@@ -1,0 +1,34 @@
+{
+  "name": "voiceb",
+  "productName": "VoiceB",
+  "version": "1.0.0",
+  "description": "Two-way simultaneous speech translation for live video calls, powered by gpt-realtime-translate",
+  "main": "src/main/index.js",
+  "author": "bbuldakovv",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/start.js",
+    "dev": "node scripts/start.js --dev",
+    "icon": "node scripts/make-icon.js",
+    "postinstall": "node scripts/make-icon.js",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^43.4.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.bbuldakovv.voiceb",
+    "productName": "VoiceB",
+    "files": ["src/**/*", "assets/**/*", "package.json"],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
