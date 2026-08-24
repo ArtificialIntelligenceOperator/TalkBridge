@@ -217,7 +217,7 @@ this.ctx.createMediaStreamSource(remoteStream)
 |---|---|
 | **Node.js** | 18+ (проверено на 24) |
 | **Ключ OpenAI** | с доступом к `gpt-realtime-translate` |
-| **Два виртуальных кабеля** | [VB-CABLE](https://vb-audio.com/Cable/) + [VB-Audio Hi-Fi Cable](https://download.vb-audio.com/Download_CABLE/HiFiCableAsioBridgeSetup_v1007.zip) (бесплатный; VB-CABLE A+B — платная альтернатива) |
+| **Два виртуальных кабеля** | [VB-CABLE](https://vb-audio.com/Cable/) + [VB-Audio Hi-Fi Cable](https://download.vb-audio.com/Download_CABLE/HiFiCableAsioBridgeSetup_v1007.zip) (бесплатный; VB-CABLE A+B — платная альтернатива). Установка и настройка — [DRIVERS.md](DRIVERS.md) |
 | **Наушники** | обязательно, и лучше проводные — см. «Ограничения» |
 
 Двух кабелей действительно нужно два *разных драйвера*: если направления делят
@@ -267,6 +267,7 @@ npm start
 `mmsys.cpl` и выставьте `Hi-Fi Cable Input` (вкладка «Воспроизведение») и
 `Hi-Fi Cable Output` (вкладка «Запись») на одинаковый формат — 24 бит, 48000 Гц.
 При расхождении кабель молчит, без всякой диагностики.
+Подробно, вместе с установкой драйверов, — [DRIVERS.md](DRIVERS.md).
 
 ## Стоимость
 
